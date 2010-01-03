@@ -1,3 +1,21 @@
+/*
+ * m4api, a tool for M4-ATX DC-DC power supplies
+ * (c) 2009-2010 Ken Tossell <ktossell@umd.edu>
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License, version 2.1,
+ * as published by the Free Software Foundation. 
+ *
+ * This software is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this software; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+
 #ifndef M4API_H
 #define M4API_H
 
