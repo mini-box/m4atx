@@ -260,7 +260,7 @@ int m4GetConfig(int fd, struct m4ConfigField *field, char *buf) {
     if (ret < 0) {
       return -1;
     }
-  } while (muref.values[1] != field->index);
+  } while (muref.values[1] != field->index && !usleep(5000));
 
   for (i = 0; i < 23; ++i) {
     buf[i] = muref.values[i];

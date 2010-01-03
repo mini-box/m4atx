@@ -94,10 +94,10 @@ int main (int argc, char **argv) {
       }
     }
   } else {
-    printf("USAGE: %s /dev/usb/hiddevX -diag   # Print diagnostic values\n" \
-	   "       %s /dev/usb/hiddevX -config # Print all config values\n" \
-	   "       %s /dev/usb/hiddevX -config FIELD # Print one field\n" \
-	   "       %s /dev/usb/hiddevX -config FIELD VALUE # Set one value\n",
+    printf("USAGE: %s /dev/usb/hiddevX -diag [loop]   # Print diagnostic values\n" \
+	   "       %s /dev/usb/hiddevX -config   # Print all config values\n" \
+	   "       %s /dev/usb/hiddevX -config FIELD   # Print one field\n" \
+	   "       %s /dev/usb/hiddevX -config FIELD VALUE   # Set one value\n",
 	   argv[0], argv[0], argv[0], argv[0]
 	   );
 
