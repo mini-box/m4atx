@@ -57,20 +57,23 @@ extern struct m4ConfigField m4ConfigFields[];
 extern size_t m4NumConfigFields;
 extern char* m4TypeDescs[];
 
+/* Find and open the PSU */
+usb_dev_handle *m4Init();
+
 /* Get the diagnostic string in its raw form (<0 = error) */
-int m4FetchDiag (int fd, char *buf);
+int m4FetchDiag (usb_dev_handle *dev, char *buf);
 
 /* Print the formatted value of the element stored at posn[0] */
 void m4PrintVal(int type, char *posn);
 
 /* Load the field's value from the PSU into buf */
-int m4GetConfig(int fd, struct m4ConfigField *field, char *buf);
+int m4GetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char *buf);
 
 /* Parse a value (123, 1.23 or 00:00:10) into buffer, encoding it */
 int m4ParseValue(int type, char const *strval, char *buf);
 
 /* Write the human-readable value to the field on the PSU */
-int m4SetConfig(int fd, struct m4ConfigField *field, char const *strval);
+int m4SetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char const *strval);
 
 /* Print the status variables in the (raw) buffer */
 void m4PrintDiag(char *buf);

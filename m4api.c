@@ -16,16 +16,8 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <asm/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <linux/hiddev.h>
+#include <usb.h>
 
 #include "m4api.h"
 
@@ -56,12 +48,12 @@ char* m4TypeDescs[14] = {
 };
 
 struct m4DiagField m4DiagFields[6] = {
-  {M4_VLT_12_11, 1, "VIN", "Input voltage"},
-  {M4_VLT_12_11, 2, "IGN", "Ignition voltage"},
-  {M4_VLT_33_01, 3, "33V", "Voltage on 3.3V rail"},
-  {M4_VLT_5_03, 4, "5V", "Voltage on 5V rail"},
-  {M4_VLT_12_07, 5, "12V", "Voltage on 12V rail"},
-  {M4_DEG, 11, "TEMP", "Temperature"},
+  {M4_VLT_12_11, 2, "VIN", "Input voltage"},
+  {M4_VLT_12_11, 3, "IGN", "Ignition voltage"},
+  {M4_VLT_33_01, 4, "33V", "Voltage on 3.3V rail"},
+  {M4_VLT_5_03, 5, "5V", "Voltage on 5V rail"},
+  {M4_VLT_12_07, 6, "12V", "Voltage on 12V rail"},
+  {M4_DEG, 12, "TEMP", "Temperature"},
 };
 
 size_t m4NumDiagFields = sizeof(m4DiagFields) / sizeof(m4DiagFields[0]);
@@ -119,52 +111,89 @@ struct m4ConfigField m4ConfigFields[47] = {
 
 size_t m4NumConfigFields = sizeof(m4ConfigFields) / sizeof(m4ConfigFields[0]);
 
-int m4FetchDiag (int fd, char *buf) {
-  struct hiddev_report_info rinfo;
-  struct hiddev_field_info finfo;
-  struct hiddev_usage_ref uref;
-  int i, j, ret;
+#define VENDOR 0x04d8
+#define PRODUCT 0xd001
+#define READ_ENDPOINT 0x81
+#define WRITE_ENDPOINT 0x01
+#define TIMEOUT 3000
 
-  /* load 0x21 report info from system cache */
-  rinfo.report_type = HID_REPORT_TYPE_INPUT;
-  rinfo.report_id = 0x21;
-  ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
+usb_dev_handle *m4Init() {
+  struct usb_bus *bus;
+  struct usb_device *dev;
 
-  /* send an 0x81 report to request an 0x21 */
-  rinfo.report_type = HID_REPORT_TYPE_OUTPUT;
-  rinfo.report_id = 0x81;
-  rinfo.num_fields = 1;
-  ret = ioctl(fd, HIDIOCSREPORT, &rinfo);
-  if (ret < 0) {
+  usb_init();
+
+  if (usb_find_busses() < 0) {
+    return NULL;
+  }
+
+  if (usb_find_devices() < 0) {
+    return NULL;
+  }
+
+  bus = usb_get_busses();
+
+  while (bus) {
+    dev = bus->devices;
+
+    while (dev) {
+      if (dev->descriptor.idVendor == VENDOR &&
+          dev->descriptor.idProduct == PRODUCT) {
+	usb_dev_handle *handle = usb_open(dev);
+
+	if (handle) {
+#ifdef LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
+          /* Linux usually claims HID devices for its usbhid driver. */
+          usb_detach_kernel_driver_np(handle, 0);
+#endif
+	  if (usb_set_configuration(handle, 1) >= 0) {
+	    if (usb_claim_interface(handle, 0) >= 0) {
+	      if (usb_set_altinterface(handle, 0) < 0) {
+	        usb_close(handle);
+		return NULL;
+              }
+	    } else {
+	      usb_close(handle);
+	      return NULL;
+	    }
+	  } else {
+	    usb_close(handle);
+	    return NULL;
+	  }
+
+	  return handle;
+	}
+      }
+
+      dev = dev->next;
+    }
+
+    bus = bus->next;
+  }
+
+  return NULL;
+}
+
+int m4Read(usb_dev_handle *dev, unsigned char *buf, unsigned int len, int timeout) {
+  return usb_interrupt_read(dev, READ_ENDPOINT, (char*) buf, len, timeout);
+}
+
+int m4Write(usb_dev_handle *dev, unsigned char *buf, unsigned int len, int timeout) {
+  return usb_interrupt_write(dev, WRITE_ENDPOINT, (char*) buf, len, timeout);
+}
+
+int m4FetchDiag (usb_dev_handle *dev, char *buf) {
+  unsigned char pollCmd[] = {0x81, 0x00};
+  
+  if (m4Write(dev, pollCmd, 2, TIMEOUT) != 2)
     return -1;
-  }
 
-  /* read in the 0x21 response */
-  rinfo.report_type = HID_REPORT_TYPE_INPUT;
-  rinfo.report_id = 0x21;
-  rinfo.num_fields = 1;
-  ret = ioctl(fd, HIDIOCGREPORT, &rinfo);
-  if (ret < 0) {
+  if (m4Read(dev, buf, 24, TIMEOUT) != 24)
     return -1;
-  }
 
-
-  struct hiddev_usage_ref_multi muref;
-  muref.uref.report_type = HID_REPORT_TYPE_INPUT;
-  muref.uref.report_id = 0x21;
-  muref.uref.field_index = 0;
-  muref.uref.usage_index = 0;
-  muref.num_values = 23;
-  ret = ioctl(fd, HIDIOCGUSAGES, &muref);
-  if (ret < 0) {
+  if (buf[0] != 0x21)
     return -1;
-  }
-
-  for (i = 0; i < 23; ++i) {
-    buf[i] = muref.values[i];
-  }
-
-  return 0;
+  
 }
 
 void m4PrintVal(int type, char *posn) {
@@ -223,69 +252,22 @@ void m4PrintVal(int type, char *posn) {
   }
 }
 
-int m4GetConfig(int fd, struct m4ConfigField *field, char *buf) {
-  struct hiddev_report_info rinfo;
-  struct hiddev_field_info finfo;
-  struct hiddev_usage_ref_multi muref;
-  int i, j, ret;
-  
-  /* prepare an 0xa4 report */
-  rinfo.report_type = HID_REPORT_TYPE_OUTPUT;
-  rinfo.report_id = 0xa4;
-  rinfo.num_fields = 1;
-  muref.uref.report_type = HID_REPORT_TYPE_OUTPUT;
-  muref.uref.report_id = 0xa4;
-  muref.uref.field_index = 0;
-  muref.uref.usage_index = 0;
-  muref.num_values = 3;
+int m4GetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char *buf) {
+  unsigned char cmd[24] = {0xa4, 0xa1};
 
-  muref.values[0] = 0xa1;
-  muref.values[1] = field->index;
-  muref.values[2] = m4TypeLengths[field->type];
+  cmd[2] = field->index;
+  cmd[3] = m4TypeLengths[field->type];
 
-  /* post the usage values to the system's buffer */
-  ret = ioctl(fd, HIDIOCSUSAGES, &muref);
-  if (ret < 0) {
+  if (m4Write(dev, cmd, 24, TIMEOUT) != 24)
     return -1;
-  }
 
-  /* send the 0xa4 report, with usages */
-  ret = ioctl(fd, HIDIOCSREPORT, &rinfo);
-  if (ret < 0) {
+  if (m4Read(dev, buf, 24, TIMEOUT) != 24)
     return -1;
-  }
-  
-  /* read in the 0x31 response */
-  rinfo.report_type = HID_REPORT_TYPE_INPUT;
-  rinfo.report_id = 0x31;
-  rinfo.num_fields = 1;
-  ret = ioctl(fd, HIDIOCGREPORT, &rinfo);
-  if (ret < 0) {
+
+  if (buf[0] != 0x31)
     return -1;
-  }
 
-  muref.values[1] = 0xff;
-
-  /* now pull the usages from the kernel */
-  muref.uref.report_type = HID_REPORT_TYPE_INPUT;
-  muref.uref.report_id = 0x31;
-  muref.uref.field_index = 0;
-  muref.uref.usage_index = 0;
-  muref.num_values = 23;
-
-  do {
-    ret = ioctl(fd, HIDIOCGUSAGES, &muref);
-    if (ret < 0) {
-      return -1;
-    }
-  } while (muref.values[1] != field->index && !usleep(5000));
-
-  for (i = 0; i < 23; ++i) {
-    buf[i] = muref.values[i];
-  }
-  
   return 0;
-  
 }
 
 int m4ParseValue(int type, char const *strval, char *buf) {
@@ -324,48 +306,27 @@ int m4ParseValue(int type, char const *strval, char *buf) {
   return 0;
 }
 
-int m4SetConfig(int fd, struct m4ConfigField *field, char const *strval) {
-  char buf[2];
+int m4SetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char const *strval) {
+  char buf[24];
+  unsigned char cmd[24] = {0xa4, 0xa0};
 
-  if (m4ParseValue(field->type, strval, buf) < 0) {
+  if (m4ParseValue(field->type, strval, &cmd[4]) < 0) {
     fprintf(stderr, "%s: Invalid value for %s\n", strval, field->name);
     return -1;
   }
 
-  struct hiddev_usage_ref_multi muref;
-  struct hiddev_report_info rinfo;
-  struct hiddev_field_info finfo;
-  int ret;
+  cmd[2] = field->index;
+  cmd[3] = m4TypeLengths[field->type];
 
-  /* prepare an 0xa4 report */
-  rinfo.report_type = HID_REPORT_TYPE_OUTPUT;
-  rinfo.report_id = 0xa4;
-  rinfo.num_fields = 1;
-  muref.uref.report_type = HID_REPORT_TYPE_OUTPUT;
-  muref.uref.report_id = 0xa4;
-  muref.uref.field_index = 0;
-  muref.uref.usage_index = 0;
-  muref.num_values = 5;
-
-  muref.values[0] = 0xa0;
-  muref.values[1] = field->index;
-  muref.values[2] = m4TypeLengths[field->type];
-  muref.values[3] = 0xff & buf[0];
-  muref.values[4] = 0xff & buf[1];
-
-  /* post the usage values to the system's buffer */
-  ret = ioctl(fd, HIDIOCSUSAGES, &muref);
-  if (ret < 0) {
+  if (m4Write(dev, cmd, 24, TIMEOUT) != 24)
     return -1;
-  }
 
-  /* send the 0xa4 report, with usages */
-  ret = ioctl(fd, HIDIOCSREPORT, &rinfo);
-  if (ret < 0) {
+  if (m4Read(dev, buf, 24, TIMEOUT) != 24)
     return -1;
-  }
 
-  /* TODO: Wait for and confirm the 0x31 report to make sure it worked. */
+  if (buf[0] != 0x31 || buf[2] != cmd[2]
+      || buf[4] != cmd[4] || buf[5] != cmd[5])
+    return -1;
 
   return 0;
 }
