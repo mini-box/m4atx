@@ -69,7 +69,7 @@ int main (int argc, char **argv) {
 	  
 	m4GetConfig(dev, field, configBuf);
 	  
-	m4PrintVal(field->type, &configBuf[4]);
+	m4PrintVal(field->type, m4GetVal(field->type, &configBuf[4]));
 	  
 	if (*m4TypeDescs[field->type] != 0)
 	  printf(" %s\n", m4TypeDescs[field->type]);
@@ -93,7 +93,7 @@ int main (int argc, char **argv) {
       } else {
 	m4GetConfig(dev, field, configBuf);
 
-	m4PrintVal(field->type, &configBuf[4]);
+	m4PrintVal(field->type, m4GetVal(field->type, &configBuf[4]));
 
 	if (&m4TypeDescs[field->type] != 0)
 	  printf(" %s\n", m4TypeDescs[field->type]);

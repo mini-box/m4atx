@@ -193,13 +193,31 @@ int m4FetchDiag (usb_dev_handle *dev, char *buf) {
 
   if (buf[0] != 0x21)
     return -1;
-  
+ 
+  return 0;
 }
 
-void m4PrintVal(int type, char *posn) {
+int m4GetDiag (usb_dev_handle *dev, struct m4Diagnostics *diag) {
+  char buf[24];
+  int field_id;
+
+  if (m4FetchDiag(dev, buf) < 0)
+    return -1;
+
+  diag->vin = m4GetVal(M4_VLT_12_11, buf + 2);
+  diag->vign = m4GetVal(M4_VLT_12_11, buf + 3);
+  diag->v33 = m4GetVal(M4_VLT_33_01, buf + 4);
+  diag->v5 = m4GetVal(M4_VLT_5_03, buf + 5);
+  diag->v12 = m4GetVal(M4_VLT_12_07, buf + 6);
+  diag->temp = m4GetVal(M4_DEG, buf + 12);
+
+  return 0;
+}
+
+float m4GetVal(enum m4Type type, char *posn) {
   float val;
   short tmp_sh;
-  int tmp_i, sec, min, hr;
+  int tmp_i;
 
   switch (m4TypeLengths[type]) {
     case 1:
@@ -222,6 +240,12 @@ void m4PrintVal(int type, char *posn) {
   // printf("%x ", tmp_i);
 
   val = tmp_i * m4TypeConversions[type];
+
+  return val;
+}
+
+void m4PrintVal(enum m4Type type, float val) {
+  int tmp_i, sec, min, hr;
 
   switch (m4TypeForms[type]) {
     case M4_INTEG:
@@ -270,7 +294,7 @@ int m4GetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char *buf) {
   return 0;
 }
 
-int m4ParseValue(int type, char const *strval, char *buf) {
+int m4ParseValue(enum m4Type type, char const *strval, char *buf) {
   int intval;
   float fval;
 
@@ -334,10 +358,12 @@ int m4SetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char const *st
 void m4PrintDiag(char *buf) {
   int field_id;
   size_t config_offset = 0;
+  float value;
 
   for (field_id = 0; field_id < m4NumDiagFields; ++field_id) {
     printf("%s:\t", m4DiagFields[field_id].name);
-    m4PrintVal(m4DiagFields[field_id].type, buf + m4DiagFields[field_id].index);
+    value = m4GetVal(m4DiagFields[field_id].type, buf + m4DiagFields[field_id].index);
+    m4PrintVal(m4DiagFields[field_id].type, value);
     puts("");
   }
 }
