@@ -90,7 +90,7 @@ struct m4ConfigField m4ConfigFields[47] = {
   {M4_BYT, 0x1e, "EMG_OFF_MODE", "Emergency OFF mode selector"},
   {M4_MSC_10_1, 0x1f, "5V_SBY_DLY", "5V standby PSW-on delay"},
   {M4_TIM, 0x20, "OFF_DELAY_0", "Off-delay MODE 0"},
-  {M4_TIM, 0x22, "OFF_HARD_1", "Hard-off MODE 0"},
+  {M4_TIM, 0x22, "OFF_HARD_0", "Hard-off MODE 0"},
   {M4_TIM, 0x24, "OFF_DELAY_1", "Off-delay MODE 1"},
   {M4_TIM, 0x26, "OFF_HARD_1", "Hard-off MODE 1"},
   {M4_TIM, 0x28, "OFF_DELAY_2", "Off-delay MODE 2"},
@@ -108,8 +108,6 @@ struct m4ConfigField m4ConfigFields[47] = {
   /* big gap with no (known) fields */
   {M4_BYT, 0xff, "RESET", "Reset to factory defaults"},
 };
-
-size_t m4NumConfigFields = sizeof(m4ConfigFields) / sizeof(m4ConfigFields[0]);
 
 #define VENDOR 0x04d8
 #define PRODUCT 0xd001
@@ -330,17 +328,90 @@ int m4ParseValue(enum m4Type type, char const *strval, char *buf) {
   return 0;
 }
 
+int m4GetFloat(usb_dev_handle *dev, enum m4FieldID fid, float *out) {
+  char buf[24];
+  struct m4ConfigField *field;
+  
+  field = &m4ConfigFields[fid];
+
+  if (m4GetConfig(dev, field, buf))
+    return -1;
+
+  *out = m4GetVal(field->type, &buf[4]);
+
+  return 0;
+}
+
+int m4SetFloat(usb_dev_handle *dev, enum m4FieldID fid, float val) {
+  char binary[2];
+  int ival;
+  struct m4ConfigField *field;
+  
+  field = &m4ConfigFields[fid];
+
+  ival = val / m4TypeConversions[field->type];
+
+  if (m4TypeLengths[field->type] == 2) {
+    binary[0] = ival >> 8;
+    binary[1] = ival;
+  } else {
+    binary[0] = ival;
+    binary[1] = 0;
+  }
+
+  return m4SetBinary(dev, field, binary);
+}
+
+int m4GetInteger(usb_dev_handle *dev, enum m4FieldID fid, int *out) {
+  char buf[24];
+  struct m4ConfigField *field;
+    
+  field = &m4ConfigFields[fid];
+
+  if (m4GetConfig(dev, field, buf))
+    return -1;
+
+  *out = (int) m4GetVal(field->type, &buf[4]);
+
+  return 0;
+}
+
+int m4SetInteger(usb_dev_handle *dev, enum m4FieldID fid, int val) {
+  char binary[2];
+  struct m4ConfigField *field;
+
+  field = &m4ConfigFields[fid];
+
+  val /= m4TypeConversions[field->type];
+
+  if (m4TypeLengths[field->type] == 2) {
+    binary[0] = val >> 8;
+    binary[1] = val;
+  } else {
+    binary[0] = val;
+    binary[1] = 0;
+  }
+
+  return m4SetBinary(dev, field, binary);
+}
+
 int m4SetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char const *strval) {
+  char binary[] = {0, 0};
+
+  if (m4ParseValue(field->type, strval, binary) < 0)
+    return -1;
+
+  return m4SetBinary(dev, field, binary);
+}
+
+int m4SetBinary(usb_dev_handle *dev, struct m4ConfigField *field, char const *val) {
   char buf[24];
   unsigned char cmd[24] = {0xa4, 0xa0};
 
-  if (m4ParseValue(field->type, strval, &cmd[4]) < 0) {
-    fprintf(stderr, "%s: Invalid value for %s\n", strval, field->name);
-    return -1;
-  }
-
   cmd[2] = field->index;
   cmd[3] = m4TypeLengths[field->type];
+  cmd[4] = val[0];
+  cmd[5] = val[1];
 
   if (m4Write(dev, cmd, 24, TIMEOUT) != 24)
     return -1;
@@ -371,7 +442,7 @@ void m4PrintDiag(char *buf) {
 int m4ConfigField(char const *name) {
   int field_id;
 
-  for (field_id = 0; field_id < m4NumConfigFields; ++field_id) {
+  for (field_id = 0; field_id < M4_NUM_CONFIG_FIELDS; ++field_id) {
     if (!strcasecmp(m4ConfigFields[field_id].name, name))
       return field_id;
   }

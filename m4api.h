@@ -35,6 +35,57 @@ enum m4Type {
   M4_BYT
 };
 
+enum m4FieldID {
+  M4_IGN_HIGH,
+  M4_IGN_LOW,
+  M4_IGN_DBC,
+  M4_PSU_DELAY,
+  M4_VIN_MIN_START,
+  M4_VIN_MIN_ON,
+  M4_VIN_MIN_5V,
+  M4_VIN_MAX,
+  M4_12V_MAX,
+  M4_12V_MIN,
+  M4_5V_MAX,
+  M4_5V_MIN,
+  M4_33V_MAX,
+  M4_33V_MIN,
+  M4_12V_TIME,
+  M4_33V_TIME,
+  M4_PWRSW,
+  M4_PSU_ON_TIME,
+  M4_ON_DELAY,
+  M4_PSU_OFF_TIME,
+  M4_OFF_DELAY,
+  M4_EMG_TIME_5VSB,
+  M4_EMG_TIMER,
+  M4_PS_ON_0,
+  M4_PS_ON_1,
+  M4_THUMP,
+  M4_TEMP_MAX,
+  M4_TEMP_MIN,
+  M4_EMG_OFF_MODE,
+  M4_5V_SBY_DLY,
+  M4_OFF_DELAY_0,
+  M4_OFF_HARD_0,
+  M4_OFF_DELAY_1,
+  M4_OFF_HARD_1,
+  M4_OFF_DELAY_2,
+  M4_OFF_HARD_2,
+  M4_OFF_DELAY_3,
+  M4_OFF_HARD_3,
+  M4_OFF_DELAY_4,
+  M4_OFF_HARD_4,
+  M4_OFF_DELAY_5,
+  M4_OFF_HARD_5,
+  M4_OFF_DELAY_6,
+  M4_OFF_HARD_6,
+  M4_OFF_DELAY_7,
+  M4_OFF_HARD_7,
+  M4_RESET,
+  M4_NUM_CONFIG_FIELDS
+};
+
 enum m4Repr {
   M4_INTEG,
   M4_FLOAT,
@@ -65,19 +116,23 @@ struct m4Diagnostics {
 };
 
 extern struct m4DiagField m4DiagFields[];
-extern size_t m4NumDiagFields;
 extern struct m4ConfigField m4ConfigFields[];
-extern size_t m4NumConfigFields;
 extern char* m4TypeDescs[];
 
 /* Find and open the PSU */
-usb_dev_handle *m4Init();
+struct usb_dev_handle *m4Init();
+
+/* User-friendly-ish routines for setting/getting config values */
+int m4GetFloat(struct usb_dev_handle *dev, enum m4FieldID fid, float *out);
+int m4SetFloat(struct usb_dev_handle *dev, enum m4FieldID fid, float val);
+int m4GetInteger(struct usb_dev_handle *dev, enum m4FieldID fid, int *out);
+int m4SetInteger(struct usb_dev_handle *dev, enum m4FieldID fid, int val);
 
 /* Get the diagnostic string in its raw form (<0 = error) */
-int m4FetchDiag (usb_dev_handle *dev, char *buf);
+int m4FetchDiag (struct usb_dev_handle *dev, char *buf);
 
 /* Get the diagnostic values in processed form (<0 = error) */
-int m4GetDiag (usb_dev_handle *dev, struct m4Diagnostics *diag);
+int m4GetDiag (struct usb_dev_handle *dev, struct m4Diagnostics *diag);
 
 /* Get a floating-point representation of the value stored at specified memory location */
 float m4GetVal(enum m4Type type, char *posn);
@@ -86,13 +141,13 @@ float m4GetVal(enum m4Type type, char *posn);
 void m4PrintVal(enum m4Type type, float val);
 
 /* Load the field's value from the PSU into buf */
-int m4GetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char *buf);
+int m4GetConfig(struct usb_dev_handle *dev, struct m4ConfigField *field, char *buf);
 
 /* Parse a value (123, 1.23 or 00:00:10) into buffer, encoding it */
 int m4ParseValue(enum m4Type type, char const *strval, char *buf);
 
 /* Write the human-readable value to the field on the PSU */
-int m4SetConfig(usb_dev_handle *dev, struct m4ConfigField *field, char const *strval);
+int m4SetConfig(struct usb_dev_handle *dev, struct m4ConfigField *field, char const *strval);
 
 /* Print the status variables in the (raw) buffer */
 void m4PrintDiag(char *buf);

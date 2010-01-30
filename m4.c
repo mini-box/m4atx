@@ -62,7 +62,7 @@ int main (int argc, char **argv) {
     /* with no further args after -config, print them all */
     char configBuf[24];
     if (argc == 2) {
-      for (field_id = 0; field_id < m4NumConfigFields; ++field_id) {
+      for (field_id = 0; field_id < M4_NUM_CONFIG_FIELDS; ++field_id) {
 	struct m4ConfigField *field = &m4ConfigFields[field_id];
 	
 	printf("%s:\t", field->name);
