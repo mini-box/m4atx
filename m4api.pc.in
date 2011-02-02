@@ -1,0 +1,11 @@
+libdir=@CMAKE_INSTALL_PREFIX@/lib
+includedir=@CMAKE_INSTALL_PREFIX@/include/m4api
+
+Name: m4api
+Description: Library for controlling the m4 ATX power supply
+Requires: libusb
+Version: 0.0.0
+URL: http://ram.umd.edu/wiki/Public/Software/m4api
+Libs: -L${libdir} -lm4api
+Libs.private: -L${libdir} -lusb -lm4api
+Cflags: -I${includedir}

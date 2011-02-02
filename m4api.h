@@ -19,6 +19,10 @@
 #ifndef M4API_H
 #define M4API_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 enum m4Type {
   M4_VLT_12_11,
   M4_VLT_12_07,
@@ -154,5 +158,9 @@ void m4PrintDiag(char *buf);
 
 /* Find the m4ConfigField of the given name */
 int m4ConfigField(char const *name);
+
+#ifdef __cplusplus
+}
+#endif	// __cplusplus
 
 #endif

@@ -10,13 +10,22 @@ Up-to-date source code is available at:
 For Git access:
   $ git clone git://ram.umd.edu/bits/m4api.git
 
+INSTALLATION
+============
+
+$ mkdir -p build
+$ cd build
+$ cmake ..
+$ make
+$ sudo make install
+
 USAGE
 =====
 
-$ ./m4 -diag [loop]         # Print diagnostic values
-$ ./m4 -config              # Print all config values
-$ ./m4 -config FIELD        # Print one field
-$ ./m4 -config FIELD VALUE  # Set one value
+$ ./m4ctl -diag [loop]         # Print diagnostic values
+$ ./m4ctl -config              # Print all config values
+$ ./m4ctl -config FIELD        # Print one field
+$ ./m4ctl -config FIELD VALUE  # Set one value
 
 -- Ken Tossell
    ktossell@umd.edu
