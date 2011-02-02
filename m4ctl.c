@@ -102,6 +102,8 @@ int main (int argc, char **argv) {
       }
     }
   } else {
+    printf("m4ctl version %d.%d\n",
+            M4API_VERSION_MAJOR, M4API_VERSION_MINOR);
     printf("USAGE: %s -diag [loop]   # Print diagnostic values\n" \
 	   "       %s -config   # Print all config values\n" \
 	   "       %s -config FIELD   # Print one field\n" \
