@@ -26,11 +26,26 @@ static size_t m4TypeLengths[13] = {
  1, 2, 2, 1, 1
 };
 
-static float m4TypeConversions[13] = {
+static float m4TypeConversionsV1[13] = {
  0.1123, 0.076625, 0.0375, 0.0188136,
  1.0, 1.0, 1.0, 1.0,
  10.0, 10.0, 1.0, 1.0,
  1.0
+};
+
+
+static float m4TypeConversionsV2[13] = {
+ 0.1552, 0.1165, 0.0389, 0.0195,
+ 1.0, 1.0, 1.0, 1.0,
+ 10.0, 10.0, 1.0, 1.0,
+ 1.0
+};
+
+static float *m4TypeConversions = NULL;
+
+struct m4Version m4CurrentVersion = {
+    .major = 0,
+    .minor = 0,
 };
 
 static int m4TypeForms[13] = {
@@ -115,7 +130,8 @@ struct m4ConfigField m4ConfigFields[47] = {
 #define WRITE_ENDPOINT 0x01
 #define TIMEOUT 3000
 
-usb_dev_handle *m4Init() {
+
+static usb_dev_handle *m4InitUSB() {
   struct usb_bus *bus;
   struct usb_device *dev;
 
@@ -180,6 +196,31 @@ int m4Write(usb_dev_handle *dev, unsigned char *buf, unsigned int len, int timeo
   return usb_interrupt_write(dev, WRITE_ENDPOINT, (char*) buf, len, timeout);
 }
 
+/* Gets the handle to the usb device and sets up version and conversions parameters */
+usb_dev_handle *m4Init() {
+
+  usb_dev_handle *dev = m4InitUSB();
+  char buf[24];
+
+  if (dev == NULL)
+    return NULL;
+
+  m4FetchDiag(dev, buf);
+
+  if (m4CheckVersion(buf) < 0)
+    return NULL;
+
+  printf("Firmware version %d.%d\n", m4CurrentVersion.major, m4CurrentVersion.minor);
+
+  if (m4CurrentVersion.major < 2)
+    m4TypeConversions = m4TypeConversionsV1;
+  else
+    m4TypeConversions = m4TypeConversionsV2;
+
+  return dev;
+}
+
+
 int m4FetchDiag (usb_dev_handle *dev, char *buf) {
   unsigned char pollCmd[] = {0x81, 0x00};
   
@@ -192,6 +233,17 @@ int m4FetchDiag (usb_dev_handle *dev, char *buf) {
   if (buf[0] != 0x21)
     return -1;
  
+  return 0;
+}
+
+int m4CheckVersion(char *buf)
+{
+  m4CurrentVersion.major = ((buf[23]) >> 4) & 0x0f;
+  m4CurrentVersion.minor = (buf[23]) & 0x0f;
+
+  if (m4CurrentVersion.major == 0)
+    return -1;
+
   return 0;
 }
 
@@ -216,6 +268,12 @@ float m4GetVal(enum m4Type type, char *posn) {
   float val;
   short tmp_sh;
   int tmp_i;
+
+  if (m4TypeConversions == NULL)
+  {
+    printf("ERROR: No type conversion values\n");
+    exit(-1);
+  }
 
   switch (m4TypeLengths[type]) {
     case 1:
