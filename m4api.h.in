@@ -123,6 +123,12 @@ struct m4Diagnostics {
   float temp;
 };
 
+struct m4Version {
+    unsigned int major;
+    unsigned int minor;
+};
+
+
 extern struct m4DiagField m4DiagFields[];
 extern struct m4ConfigField m4ConfigFields[];
 extern char* m4TypeDescs[];
